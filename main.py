@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-ACT_THRESHOLD = 2.0
+ACT_THRESHOLD = 0.75
 
 x_col, y_col =[], []
 plt.style.use('seaborn-v0_8-darkgrid')  # nicer default look
@@ -19,8 +19,8 @@ ax.set_title("Live ACT Score")
 ax.yaxis.set_major_locator(MultipleLocator(0.5))
 fig.tight_layout()
 
-#plt.ion()
-#plt.show()
+plt.ion()
+plt.show()
 
 VIDEO_PATH = Path("./data/video/1.mp4")
 
@@ -64,6 +64,8 @@ class ComputeAct:
         swr = self.calculate_swr()
         return np.sqrt(amm * swr)
     
+
+
 
 # Open the video file
 cap = cv2.VideoCapture(str(VIDEO_PATH))
@@ -112,7 +114,7 @@ while True:
             cv2.setWindowTitle('keyframe', f'Keyframe - Frame {current_idx}')
 
         #print(f"Frame idx: {current_idx} | ACT: {act_score}")
-        """
+        
         # Draw live graph
         x_col.append(current_idx)
         y_col.append(act_score)
@@ -121,7 +123,7 @@ while True:
             ax.set_xlim(x_col[0], x_col[-1])
             fig.canvas.draw_idle()
             fig.canvas.flush_events()
-        """
+        
 
         cv2.waitKey(1)
         if cv2.getWindowProperty('live window', cv2.WND_PROP_VISIBLE) < 1:
