@@ -6,15 +6,11 @@ from matplotlib.ticker import MultipleLocator
 import threading
 import time
 
+VIDEOS_FOLDER = Path()                      # <--- CHỈNH CÁI NÀY
+OUTPUT_DIR = Path("./data/keyframes")      # <--- CHỈNH CÁI NÀY
 ACT_THRESHOLD = 0.95
-VIDEO_PATH = Path("./data/video/1.mp4")
-OUTPUT_DIR = Path("./data/keyframes")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-if VIDEO_PATH.exists():
-    print("Found video.")
-else:
-    print("Not found video. Check path")
+VIDEOS_FOLDER.mkdir(parents=True, exist_ok=True)
 
 class ComputeAct:
     def __init__(self, frame1, frame2, dis) -> None:
@@ -51,7 +47,7 @@ class ComputeAct:
         swr = self.calculate_swr()
         return np.sqrt(amm * swr)
 
-def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir):
+def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir, output_folder):
     # Seek to the starting frame instead of reading from 0
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_idx)
 
@@ -79,7 +75,7 @@ def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir):
             if accumulated_act >= ACT_THRESHOLD:
                 accumulated_act = 0
                 """save frame"""
-                out_path = Path(output_dir) / f"frame_{current_idx:06d}.jpg"
+                out_path = Path(output_dir) / Path(output_folder) /f"{current_idx:03d}.jpg"
                 print(f"Saved frame_{current_idx:06d}.jpg")
                 cv2.imwrite(str(out_path), frame)
 
@@ -88,7 +84,7 @@ def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir):
     cap.release()
 
 
-def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR):
+def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR, FOLDER_PATH):
      # Open the video file
     cap = cv2.VideoCapture(str(VIDEO_PATH))
 
@@ -114,7 +110,7 @@ def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR):
 
         t = threading.Thread(
             target=extracting_keyframes,
-            args=(VIDEO_PATH, start_idx, end_idx, thread_cap, dis, OUTPUT_DIR),
+            args=(VIDEO_PATH, start_idx, end_idx, thread_cap, dis, OUTPUT_DIR, FOLDER_PATH),
             name=f"Thread-{i}"
         )
         threads.append(t)
@@ -123,39 +119,12 @@ def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR):
     for t in threads:
         t.join()
 
-def delete_folder(FOLDER_PATH):
-    for file_path in FOLDER_PATH.glob("*.jpg"):
-        file_path.unlink()
-
 if __name__ == "__main__":
-    lowest_time = np.inf
-    runtime_log = []
     print("start")
-
-    min_thread = 4
-    max_thread = 12
-
-    current_thread = min_thread
-    best_thread = None
-    while current_thread <= max_thread:
-        start_time = time.perf_counter()
-        extracting_videos_with_threads(VIDEO_PATH, current_thread, OUTPUT_DIR)
-        end_time = time.perf_counter()
-        execution_time = end_time - start_time
-        runtime_log.append(execution_time)
-
-        if lowest_time > execution_time:
-            lowest_time = execution_time
-            best_thread = current_thread
-        current_thread += 1
-
-        delete_folder(OUTPUT_DIR)
-
-    print("done")
-    print(f"Best thread: {best_thread} | Lowest time: {lowest_time}")
-    print(f"Execution time: {runtime_log}")
-
-    # 10 thread da best
-   
-
-
+    for folder in VIDEOS_FOLDER.iterdir():
+        for video_path in folder.iterdir():
+            """10 thread da best"""
+            print(f"Xử lý {video_path.stem}")
+            extracting_videos_with_threads(video_path, 10, OUTPUT_DIR, folder)
+        print(f"Xong {folder}")
+    print(f"Xong {VIDEOS_FOLDER}")
