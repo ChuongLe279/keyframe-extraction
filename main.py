@@ -4,30 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 import threading
-
-# Initialize DIS Optical Flow 
-dis = cv2.DISOpticalFlow.create(cv2.DISOPTICAL_FLOW_PRESET_FAST)
+import time
 
 ACT_THRESHOLD = 0.75
-
-
-
-"""
-x_col, y_col =[], []
-plt.style.use('seaborn-v0_8-darkgrid')  # nicer default look
-fig, ax = plt.subplots(figsize=(8, 4))
-line, = ax.plot([], [], color='#2ecc71', linewidth=2)
-ax.set_ylim(0, 10)
-ax.set_xlabel("Frame idx")
-ax.set_ylabel("ACT score")
-ax.set_title("Live ACT Score")
-ax.yaxis.set_major_locator(MultipleLocator(0.5))
-fig.tight_layout()
-plt.ion()
-plt.show()
-"""
-
 VIDEO_PATH = Path("./data/video/1.mp4")
+OUTPUT_DIR = Path("./data/keyframes")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 if VIDEO_PATH.exists():
     print("Found video.")
@@ -68,27 +50,19 @@ class ComputeAct:
         amm = self.measure_arrow_length()
         swr = self.calculate_swr()
         return np.sqrt(amm * swr)
-    
 
-def extracting_keyframes(VIDEO_PATH):
-    # Open the video file
-    cap = cv2.VideoCapture(str(VIDEO_PATH))
-    totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
-    if not cap.isOpened():
-        print("Error: could not open video file")
-        exit()
-    else:
-        print("Open video.")
-
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    print(f"Frame width = {frame_width} | Frame height = {frame_height}")
+def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir):
+    # Seek to the starting frame instead of reading from 0
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_idx)
 
     prev_frame = None
     accumulated_act = 0
+    
     while True:
+        current_idx = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+        if current_idx >= end_idx:
+            break
+
         ret, frame = cap.read()
         if not ret:
             break
@@ -97,11 +71,6 @@ def extracting_keyframes(VIDEO_PATH):
         cur_frame = cv2.resize(cur_frame, (320, 180))
 
         if prev_frame is not None:
-            # Custom window
-            cv2.namedWindow('live window', cv2.WINDOW_KEEPRATIO)
-            cv2.imshow('live window', cur_frame)
-            cv2.resizeWindow('live window', 128*5, 72*5)
-
             act_calculator = ComputeAct(prev_frame, cur_frame, dis)
             act_score = act_calculator.calculate_act()
             accumulated_act += act_score
@@ -109,31 +78,59 @@ def extracting_keyframes(VIDEO_PATH):
 
             if accumulated_act >= ACT_THRESHOLD:
                 accumulated_act = 0
-                cv2.namedWindow('keyframe', cv2.WINDOW_KEEPRATIO)
-                cv2.imshow('keyframe', frame)
-                cv2.resizeWindow('keyframe', 128*5, 72*5)
-                cv2.setWindowTitle('keyframe', f'Keyframe - Frame {current_idx}')
-            """
-            # Draw live graph
-            x_col.append(current_idx)
-            y_col.append(act_score)
-            if current_idx % 3 == 0:
-                line.set_data(x_col, y_col)
-                ax.set_xlim(x_col[0], x_col[-1])
-                fig.canvas.draw_idle()
-                fig.canvas.flush_events()
-            
-            """
-            cv2.waitKey(1)
-            if cv2.getWindowProperty('live window', cv2.WND_PROP_VISIBLE) < 1:
-                break
+                """save frame"""
+                out_path = Path(output_dir) / f"frame_{current_idx:06d}.jpg"
+                cv2.imwrite(str(out_path), frame)
+
         prev_frame = cur_frame.copy()
 
-
-    cv2.destroyAllWindows()
     cap.release()
 
+
+def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR):
+     # Open the video file
+    cap = cv2.VideoCapture(str(VIDEO_PATH))
+
+    if not cap.isOpened():
+        print("Error: could not open video file")
+        exit()
+    else:
+        print("Open video.")
+
+    totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    cap.release()
+
+    boundaries  = np.linspace(0, totalFrames, num=num_threads + 1, dtype=int)
+    threads = []
+    for i in range(num_threads):
+        start_idx = int(boundaries[i])
+        end_idx = int(boundaries[i + 1])
+
+        thread_cap = cv2.VideoCapture(str(VIDEO_PATH))
+
+        # Initialize DIS Optical Flow 
+        dis = cv2.DISOpticalFlow.create(cv2.DISOPTICAL_FLOW_PRESET_FAST)
+
+        t = threading.Thread(
+            target=extracting_keyframes,
+            args=(VIDEO_PATH, start_idx, end_idx, thread_cap, dis, OUTPUT_DIR),
+            name=f"Thread-{i}"
+        )
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
+
+
 if __name__ == "__main__":
-    extracting_keyframes(VIDEO_PATH)
+    start_time = time.perf_counter()
+    for i in range(10_000_000):
+        extracting_videos_with_threads(VIDEO_PATH, 2, OUTPUT_DIR)
+
+    end_time = time.perf_counter()
+    execution_time = end_time - start_time
+    print(f"Program ran for {execution_time:.6f} seconds")
+
 
 

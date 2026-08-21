@@ -1,21 +1,36 @@
-import threading
-import time
+import cv2
+from pathlib import Path
 
-def worker(name, delay):
-    for i in range(3):
-        print(f"{name}: count {i}")
-        time.sleep(delay)  # pause this thread only
+video_path = Path("./data/video/1.mp4")
+cap = cv2.VideoCapture(video_path)
 
-# Create threads
-t1 = threading.Thread(target=worker, args=("Thread-A", 1))
-t2 = threading.Thread(target=worker, args=("Thread-B", 0.5))
+# 1. Define your frame boundaries (zero-based indexing)
+start_frame = 100
+end_frame = 1000
 
-# Start them (they now run concurrently)
-t1.start()
-t2.start()
+# Optional: Verify video bounds
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+end_frame = min(end_frame, total_frames - 1)
 
-# Wait for both to finish before continuing
-t1.join()
-t2.join()
+# 2. Seek directly to the start frame
+cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
-print("Done!")
+# 3. Loop through the specific segment
+current_frame = start_frame
+while current_frame <= end_frame:
+    success, frame = cap.read()
+    
+    # Break early if the video ends unexpectedly
+    if not success:
+        print("Reached end of video stream early.")
+        break
+
+    cv2.imshow("Segment", frame)
+        
+
+    
+    current_frame += 1
+
+# 4. Clean up resources
+cap.release()
+cv2.destroyAllWindows()
