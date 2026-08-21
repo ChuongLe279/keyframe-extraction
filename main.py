@@ -5,24 +5,27 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 import threading
 
+# Initialize DIS Optical Flow 
+dis = cv2.DISOpticalFlow.create(cv2.DISOPTICAL_FLOW_PRESET_FAST)
 
 ACT_THRESHOLD = 0.75
 
+
+
+"""
 x_col, y_col =[], []
 plt.style.use('seaborn-v0_8-darkgrid')  # nicer default look
-
 fig, ax = plt.subplots(figsize=(8, 4))
 line, = ax.plot([], [], color='#2ecc71', linewidth=2)
-
 ax.set_ylim(0, 10)
 ax.set_xlabel("Frame idx")
 ax.set_ylabel("ACT score")
 ax.set_title("Live ACT Score")
 ax.yaxis.set_major_locator(MultipleLocator(0.5))
 fig.tight_layout()
-
 plt.ion()
 plt.show()
+"""
 
 VIDEO_PATH = Path("./data/video/1.mp4")
 
@@ -67,74 +70,70 @@ class ComputeAct:
         return np.sqrt(amm * swr)
     
 
+def extracting_keyframes(VIDEO_PATH):
+    # Open the video file
+    cap = cv2.VideoCapture(str(VIDEO_PATH))
+    totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
+    if not cap.isOpened():
+        print("Error: could not open video file")
+        exit()
+    else:
+        print("Open video.")
 
-# Open the video file
-cap = cv2.VideoCapture(str(VIDEO_PATH))
-totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-if not cap.isOpened():
-    print("Error: could not open video file")
-    exit()
-else:
-    print("Open video.")
+    print(f"Frame width = {frame_width} | Frame height = {frame_height}")
 
-frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-print(f"Frame width = {frame_width} | Frame height = {frame_height}")
-
-# Initialize DIS Optical Flow 
-dis = cv2.DISOpticalFlow.create(cv2.DISOPTICAL_FLOW_PRESET_FAST)
-prev_frame = None
-accumulated_act = 0
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-
-    cur_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    cur_frame = cv2.resize(cur_frame, (320, 180))
-
-    if prev_frame is not None:
-        # Custom window
-        cv2.namedWindow('live window', cv2.WINDOW_KEEPRATIO)
-        cv2.imshow('live window', cur_frame)
-        cv2.resizeWindow('live window', 128*5, 72*5)
-
-        act_calculator = ComputeAct(prev_frame, cur_frame, dis)
-        act_score = act_calculator.calculate_act()
-        accumulated_act += act_score
-        current_idx = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
-
-        if accumulated_act >= ACT_THRESHOLD:
-            accumulated_act = 0
-
-            cv2.namedWindow('keyframe', cv2.WINDOW_KEEPRATIO)
-            cv2.imshow('keyframe', frame)
-            cv2.resizeWindow('keyframe', 128*5, 72*5)
-            cv2.setWindowTitle('keyframe', f'Keyframe - Frame {current_idx}')
-
-        #print(f"Frame idx: {current_idx} | ACT: {act_score}")
-        
-        # Draw live graph
-        x_col.append(current_idx)
-        y_col.append(act_score)
-        if current_idx % 3 == 0:
-            line.set_data(x_col, y_col)
-            ax.set_xlim(x_col[0], x_col[-1])
-            fig.canvas.draw_idle()
-            fig.canvas.flush_events()
-        
-
-        cv2.waitKey(1)
-        if cv2.getWindowProperty('live window', cv2.WND_PROP_VISIBLE) < 1:
+    prev_frame = None
+    accumulated_act = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
             break
 
-    prev_frame = cur_frame.copy()
+        cur_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        cur_frame = cv2.resize(cur_frame, (320, 180))
+
+        if prev_frame is not None:
+            # Custom window
+            cv2.namedWindow('live window', cv2.WINDOW_KEEPRATIO)
+            cv2.imshow('live window', cur_frame)
+            cv2.resizeWindow('live window', 128*5, 72*5)
+
+            act_calculator = ComputeAct(prev_frame, cur_frame, dis)
+            act_score = act_calculator.calculate_act()
+            accumulated_act += act_score
+            current_idx = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+
+            if accumulated_act >= ACT_THRESHOLD:
+                accumulated_act = 0
+                cv2.namedWindow('keyframe', cv2.WINDOW_KEEPRATIO)
+                cv2.imshow('keyframe', frame)
+                cv2.resizeWindow('keyframe', 128*5, 72*5)
+                cv2.setWindowTitle('keyframe', f'Keyframe - Frame {current_idx}')
+            """
+            # Draw live graph
+            x_col.append(current_idx)
+            y_col.append(act_score)
+            if current_idx % 3 == 0:
+                line.set_data(x_col, y_col)
+                ax.set_xlim(x_col[0], x_col[-1])
+                fig.canvas.draw_idle()
+                fig.canvas.flush_events()
+            
+            """
+            cv2.waitKey(1)
+            if cv2.getWindowProperty('live window', cv2.WND_PROP_VISIBLE) < 1:
+                break
+        prev_frame = cur_frame.copy()
 
 
-cv2.destroyAllWindows()
-cap.release()
+    cv2.destroyAllWindows()
+    cap.release()
+
+if __name__ == "__main__":
+    extracting_keyframes(VIDEO_PATH)
 
 
