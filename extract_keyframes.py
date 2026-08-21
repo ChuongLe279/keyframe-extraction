@@ -7,8 +7,13 @@ import threading
 import time
 import csv
 
-VIDEOS_FOLDER = Path()                      # <--- CHỈNH CÁI NÀY
-OUTPUT_DIR = Path()      # <--- CHỈNH CÁI NÀY
+"""Folder trống sẽ chứa các file csv"""
+MAP_KEYFRAMES_DIR = Path()       # <--- CHỈNH CÁI NÀY
+"""Folder chứa video"""
+VIDEOS_FOLDER = Path()           # <--- CHỈNH CÁI NÀY
+"""Folder trống sẽ chứa keyframes"""
+OUTPUT_DIR = Path()              # <--- CHỈNH CÁI NÀY
+
 ACT_THRESHOLD = 0.95
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 VIDEOS_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -160,7 +165,7 @@ if __name__ == "__main__":
             fps = extracting_videos_with_threads(video_path, 10, OUTPUT_DIR, folder.name)
 
             video_out_dir = OUTPUT_DIR / folder.name / video_path.stem
-            csv_output_path = Path("map-keyframes") / f"{video_path.stem}.csv"
+            csv_output_path = MAP_KEYFRAMES_DIR / folder.name / f"{video_path.stem}.csv"
             csv_output_path.parent.mkdir(parents=True, exist_ok=True)
 
             renaming_and_mapping_csv(video_out_dir, fps, csv_output_path)
