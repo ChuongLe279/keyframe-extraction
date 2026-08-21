@@ -7,7 +7,7 @@ import threading
 import time
 
 VIDEOS_FOLDER = Path()                      # <--- CHỈNH CÁI NÀY
-OUTPUT_DIR = Path("./data/keyframes")      # <--- CHỈNH CÁI NÀY
+OUTPUT_DIR = Path()      # <--- CHỈNH CÁI NÀY
 ACT_THRESHOLD = 0.95
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 VIDEOS_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -47,7 +47,7 @@ class ComputeAct:
         swr = self.calculate_swr()
         return np.sqrt(amm * swr)
 
-def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir, output_folder):
+def extracting_keyframes(start_idx, end_idx, cap, dis, output_dir, output_folder, video_path):
     # Seek to the starting frame instead of reading from 0
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_idx)
 
@@ -75,8 +75,7 @@ def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir, o
             if accumulated_act >= ACT_THRESHOLD:
                 accumulated_act = 0
                 """save frame"""
-                out_path = Path(output_dir) / Path(output_folder) /f"{current_idx:03d}.jpg"
-                print(f"Saved frame_{current_idx:06d}.jpg")
+                out_path = Path(output_dir) / Path(output_folder) / video_path.stem /f"{current_idx:08d}.jpg"
                 cv2.imwrite(str(out_path), frame)
 
         prev_frame = cur_frame.copy()
@@ -85,6 +84,7 @@ def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir, o
 
 
 def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR, FOLDER_PATH):
+    (Path(OUTPUT_DIR) / FOLDER_PATH / VIDEO_PATH.stem).mkdir(parents=True, exist_ok=True)
      # Open the video file
     cap = cv2.VideoCapture(str(VIDEO_PATH))
 
@@ -110,7 +110,7 @@ def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR, FOLDER_P
 
         t = threading.Thread(
             target=extracting_keyframes,
-            args=(VIDEO_PATH, start_idx, end_idx, thread_cap, dis, OUTPUT_DIR, FOLDER_PATH),
+            args=(start_idx, end_idx, thread_cap, dis, OUTPUT_DIR, FOLDER_PATH, VIDEO_PATH),
             name=f"Thread-{i}"
         )
         threads.append(t)
@@ -119,12 +119,32 @@ def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR, FOLDER_P
     for t in threads:
         t.join()
 
+def renaming_jpg_files(folder_path):
+    files = list(Path(folder_path).glob("*.jpg"))
+    
+    # sort theo số frame gốc trong tên file, vd "00000150.jpg" -> 150
+    files.sort(key=lambda f: int(f.stem))
+
+    # Bước 1: rename sang tên tạm, tránh đè lẫn nhau khi 2 file hoán đổi số
+    temp_paths = []
+    for i, f in enumerate(files):
+        tmp = f.parent / f"__tmp_{i}.jpg"
+        f.rename(tmp)
+        temp_paths.append(tmp)
+
+    # Bước 2: rename sang tên cuối cùng theo thứ tự
+    for i, tmp in enumerate(temp_paths, start=1):
+        tmp.rename(tmp.parent / f"{i:03d}.jpg")
+
+
 if __name__ == "__main__":
     print("start")
     for folder in VIDEOS_FOLDER.iterdir():
+        (OUTPUT_DIR / folder.name).mkdir(parents=True, exist_ok=True)
         for video_path in folder.iterdir():
             """10 thread da best"""
             print(f"Xử lý {video_path.stem}")
-            extracting_videos_with_threads(video_path, 10, OUTPUT_DIR, folder)
+            extracting_videos_with_threads(video_path, 10, OUTPUT_DIR, folder.name)
+            renaming_jpg_files(OUTPUT_DIR / folder.name / video_path.stem)
         print(f"Xong {folder}")
     print(f"Xong {VIDEOS_FOLDER}")
