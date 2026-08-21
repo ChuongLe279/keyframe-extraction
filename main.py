@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 import threading
 import time
+import csv
 
 ACT_THRESHOLD = 0.95
 VIDEO_PATH = Path("./data/video/1.mp4")
