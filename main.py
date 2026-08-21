@@ -6,7 +6,7 @@ from matplotlib.ticker import MultipleLocator
 import threading
 import time
 
-ACT_THRESHOLD = 0.75
+ACT_THRESHOLD = 0.95
 VIDEO_PATH = Path("./data/video/1.mp4")
 OUTPUT_DIR = Path("./data/keyframes")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -80,6 +80,7 @@ def extracting_keyframes(VIDEO_PATH, start_idx, end_idx, cap, dis, output_dir):
                 accumulated_act = 0
                 """save frame"""
                 out_path = Path(output_dir) / f"frame_{current_idx:06d}.jpg"
+                print(f"Saved frame_{current_idx:06d}.jpg")
                 cv2.imwrite(str(out_path), frame)
 
         prev_frame = cur_frame.copy()
@@ -122,15 +123,37 @@ def extracting_videos_with_threads(VIDEO_PATH, num_threads, OUTPUT_DIR):
     for t in threads:
         t.join()
 
+def delete_folder(FOLDER_PATH):
+    for file_path in FOLDER_PATH.glob("*.jpg"):
+        file_path.unlink()
 
 if __name__ == "__main__":
-    start_time = time.perf_counter()
-    for i in range(10_000_000):
-        extracting_videos_with_threads(VIDEO_PATH, 2, OUTPUT_DIR)
+    lowest_time = np.inf
+    runtime_log = []
+    print("start")
 
-    end_time = time.perf_counter()
-    execution_time = end_time - start_time
-    print(f"Program ran for {execution_time:.6f} seconds")
+    min_thread = 4
+    max_thread = 12
 
+    current_thread = min_thread
+    best_thread = None
+    while current_thread <= max_thread:
+        start_time = time.perf_counter()
+        extracting_videos_with_threads(VIDEO_PATH, current_thread, OUTPUT_DIR)
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        runtime_log.append(execution_time)
+
+        if lowest_time > execution_time:
+            lowest_time = execution_time
+            best_thread = current_thread
+        current_thread += 1
+
+        delete_folder(OUTPUT_DIR)
+
+    print("done")
+    print(f"Best thread: {best_thread} | Lowest time: {lowest_time}")
+    print(f"Execution time: {runtime_log}")
+   
 
 
